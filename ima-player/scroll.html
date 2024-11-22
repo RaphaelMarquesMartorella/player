@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scroll-triggered PiP</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    video {
+      width: 100%;
+      max-width: 800px;
+      display: block;
+      margin: 20px auto;
+    }
+
+    .spacer {
+      height: 2000px;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" controls>
+    <source src="https://samplelib.com/lib/preview/mp4/sample-15s.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+  <div class="spacer"></div>
+
+  <script>
+    const video = document.getElementById('video');
+
+    // Use IntersectionObserver to detect when the video leaves or re-enters the viewport
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (!entry.isIntersecting) {
+        // Trigger Picture-in-Picture when video is out of viewport
+        video.requestPictureInPicture().catch((error) => {
+          console.error('Error enabling PiP:', error);
+        });
+      } else if (document.pictureInPictureElement) {
+        // Exit Picture-in-Picture when video is back in viewport
+        document.exitPictureInPicture().catch((error) => {
+          console.error('Error exiting PiP:', error);
+        });
+      }
+    });
+
+    // Start observing the video element
+    observer.observe(video);
+  </script>
+</body>
+</html>
