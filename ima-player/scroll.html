@@ -21,36 +21,96 @@
     .spacer {
       height: 2000px;
     }
+
+    #floating-video-container {
+      display: none;
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      width: 300px;
+      height: 200px;
+      z-index: 1000;
+      background: black;
+    }
+
+    #floating-video {
+      width: 100%;
+      height: 100%;
+    }
   </style>
 </head>
 <body>
-  <video id="video" controls>
+  <video id="video" controls playsinline>
     <source src="https://samplelib.com/lib/preview/mp4/sample-15s.mp4" type="video/mp4">
     Your browser does not support the video tag.
   </video>
   <div class="spacer"></div>
 
+  <div id="floating-video-container">
+    <video id="floating-video" controls></video>
+  </div>
+
   <script>
     const video = document.getElementById('video');
+    const floatingContainer = document.getElementById('floating-video-container');
+    const floatingVideo = document.getElementById('floating-video');
 
-    // Use IntersectionObserver to detect when the video leaves or re-enters the viewport
-    const observer = new IntersectionObserver((entries) => {
-      const entry = entries[0];
-      if (!entry.isIntersecting) {
-        // Trigger Picture-in-Picture when video is out of viewport
-        video.requestPictureInPicture().catch((error) => {
-          console.error('Error enabling PiP:', error);
-        });
-      } else if (document.pictureInPictureElement) {
-        // Exit Picture-in-Picture when video is back in viewport
-        document.exitPictureInPicture().catch((error) => {
-          console.error('Error exiting PiP:', error);
-        });
-      }
-    });
+    if ('pictureInPictureEnabled' in document) {
+      // Use IntersectionObserver to detect when the video leaves or re-enters the viewport
+      const observer = new IntersectionObserver((entries) => {
+        const entry = entries[0];
+        if (!entry.isIntersecting) {
+          // Trigger Picture-in-Picture when video is out of viewport
+          video.requestPictureInPicture().catch((error) => {
+            console.error('Error enabling PiP:', error);
+          });
+        } else if (document.pictureInPictureElement) {
+          // Exit Picture-in-Picture when video is back in viewport
+          document.exitPictureInPicture().catch((error) => {
+            console.error('Error exiting PiP:', error);
+          });
+        }
+      });
 
-    // Start observing the video element
-    observer.observe(video);
+      // Start observing the video element
+      observer.observe(video);
+    } else {
+      console.warn('Picture-in-Picture is not supported on this device.');
+
+      // Fallback: Show floating video player when the main video leaves viewport
+      const observer = new IntersectionObserver((entries) => {
+        const entry = entries[0];
+        if (!entry.isIntersecting) {
+          floatingContainer.style.display = 'block';
+          floatingVideo.src = video.currentSrc;
+          floatingVideo.currentTime = video.currentTime;
+          floatingVideo.play();
+        } else {
+          floatingContainer.style.display = 'none';
+          floatingVideo.pause();
+        }
+      });
+
+      // Start observing the video element
+      observer.observe(video);
+
+      // Sync play/pause events
+      video.addEventListener('play', () => {
+        if (floatingContainer.style.display === 'block') {
+          floatingVideo.play();
+        }
+      });
+
+      video.addEventListener('pause', () => {
+        if (floatingContainer.style.display === 'block') {
+          floatingVideo.pause();
+        }
+      });
+
+      floatingVideo.addEventListener('timeupdate', () => {
+        video.currentTime = floatingVideo.currentTime;
+      });
+    }
   </script>
 </body>
 </html>
