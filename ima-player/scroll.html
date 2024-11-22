@@ -55,7 +55,10 @@
     const floatingContainer = document.getElementById('floating-video-container');
     const floatingVideo = document.getElementById('floating-video');
 
-    if ('pictureInPictureEnabled' in document) {
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+
+    if ('pictureInPictureEnabled' in document && !(isIOS && isSafari)) {
       // Use IntersectionObserver to detect when the video leaves or re-enters the viewport
       const observer = new IntersectionObserver((entries) => {
         const entry = entries[0];
@@ -74,8 +77,11 @@
 
       // Start observing the video element
       observer.observe(video);
+    } else if (isIOS && isSafari) {
+      console.warn('Native PiP is available on iOS Safari but not programmatically. Use native controls.');
+      // Optionally, you can provide user instructions or ensure `playsinline` for better UX
     } else {
-      console.warn('Picture-in-Picture is not supported on this device.');
+      console.warn('Picture-in-Picture is not supported. Fallback to floating player.');
 
       // Fallback: Show floating video player when the main video leaves viewport
       const observer = new IntersectionObserver((entries) => {
