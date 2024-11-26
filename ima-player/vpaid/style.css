@@ -1,0 +1,7 @@
+#ad-container {
+    width: 640px;
+    height: 360px;
+    background-color: black;
+    margin: 20px auto;
+    position: relative;
+  }

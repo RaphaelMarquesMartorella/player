@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VAST Video Player with Floating PiP</title>
+  <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 200vh; /* Extra height for scrolling */
+      background-color: #f0f0f0;
+    }
+    #ad-container {
+      width: 640px;
+      height: 360px;
+      background-color: black;
+      position: relative;
+      margin-top: 20px;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+    }
+    .play-button {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80px;
+      height: 80px;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .play-button svg {
+      fill: white;
+      width: 40px;
+      height: 40px;
+    }
+    #floating-video-container {
+      display: none;
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      width: 300px;
+      height: 170px;
+      z-index: 1000;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      background-color: black;
+      overflow: hidden;
+    }
+    #floating-video-container video {
+      width: 100%;
+      height: 100%;
+    }
+    #close-floating {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 24px;
+      height: 24px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 50%;
+      color: white;
+      font-size: 16px;
+      line-height: 24px;
+      text-align: center;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="ad-container">
+    <video id="ad-video" controls></video>
+    <div class="play-button" id="play-button">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+    </div>
+  </div>
+  <div id="floating-video-container">
+    <video id="floating-video" controls></video>
+    <div id="close-floating">✕</div>
+  </div>
+  <script src="ads.js"></script>
+</body>
+</html>
