@@ -7,9 +7,16 @@ const floatingContainer = document.getElementById('floating-video-container'); /
 const floatingVideo = document.getElementById('floating-video'); // Floating video element
 const closeFloating = document.getElementById('close-floating'); // Close button for floating video
 
-let isFloating = false;
+let isFloating = false; // Tracks whether PiP is active
+let trackingFired = {
+  start: false,
+  firstQuartile: false,
+  midpoint: false,
+  thirdQuartile: false,
+  complete: false,
+};
 
-// Parse VAST and extract the media file URL
+// Parse VAST and extract the media file URL and tracking URLs
 async function fetchVast() {
   console.log('Fetching VAST tag...');
   try {
@@ -25,21 +32,47 @@ async function fetchVast() {
       throw new Error('MediaFile not found in VAST tag.');
     }
     const videoUrl = mediaFile.textContent.trim();
-    console.log('Media file URL extracted:', videoUrl);
 
-    return videoUrl;
+    // Extract tracking events
+    const trackingEvents = {};
+    xmlDoc.querySelectorAll('Tracking').forEach((tracking) => {
+      const event = tracking.getAttribute('event');
+      trackingEvents[event] = tracking.textContent.trim();
+    });
+
+    console.log('Media file URL:', videoUrl);
+    console.log('Tracking URLs:', trackingEvents);
+
+    return { videoUrl, trackingEvents };
   } catch (error) {
     console.error('Error fetching or parsing VAST tag:', error);
   }
 }
 
+// Fire VAST Tracking Events
+function fireTrackingEvent(eventName, trackingUrls) {
+  if (!trackingUrls[eventName] || trackingFired[eventName]) return;
+  console.log(`Firing ${eventName} tracking URL:`, trackingUrls[eventName]);
+  fetch(trackingUrls[eventName])
+    .then(() => {
+      console.log(`${eventName} event tracked successfully.`);
+      trackingFired[eventName] = true;
+    })
+    .catch((error) => console.error(`Error tracking ${eventName} event:`, error));
+}
+
 // Load and play the ad video
 async function loadAd() {
   try {
-    const videoUrl = await fetchVast();
+    const { videoUrl, trackingEvents } = await fetchVast();
     if (videoUrl) {
-      videoElement.src = videoUrl; // Set the video source
-      floatingVideo.src = videoUrl; // Set the floating video source
+      videoElement.src = videoUrl;
+      floatingVideo.src = videoUrl;
+
+      // Bind tracking to both players
+      bindTracking(videoElement, trackingEvents);
+      bindTracking(floatingVideo, trackingEvents);
+
       console.log('Ad video loaded.');
     } else {
       console.error('No video URL available.');
@@ -47,6 +80,29 @@ async function loadAd() {
   } catch (error) {
     console.error('Error loading ad video:', error);
   }
+}
+
+// Bind VAST Tracking Events to a Video Element
+function bindTracking(video, trackingUrls) {
+  video.addEventListener('play', () => fireTrackingEvent('start', trackingUrls));
+  video.addEventListener('timeupdate', () => {
+    const quartile = video.currentTime / video.duration;
+    if (quartile >= 0.25 && !trackingFired.firstQuartile) {
+      fireTrackingEvent('firstQuartile', trackingUrls);
+    }
+    if (quartile >= 0.5 && !trackingFired.midpoint) {
+      fireTrackingEvent('midpoint', trackingUrls);
+    }
+    if (quartile >= 0.75 && !trackingFired.thirdQuartile) {
+      fireTrackingEvent('thirdQuartile', trackingUrls);
+    }
+  });
+  video.addEventListener('ended', () => fireTrackingEvent('complete', trackingUrls));
+  video.addEventListener('volumechange', () => {
+    const event = video.muted ? 'mute' : 'unmute';
+    fireTrackingEvent(event, trackingUrls);
+  });
+  video.addEventListener('pause', () => fireTrackingEvent('pause', trackingUrls));
 }
 
 // Play Button Logic
@@ -57,93 +113,85 @@ playButton.addEventListener('click', async () => {
   videoElement.play(); // Start video playback
 });
 
-// Floating Video Logic
+// Enable PiP Player
 function enableFloatingPlayer() {
+  if (videoElement.paused) {
+    console.log("Can't enter PiP when video is paused.");
+    return; // Only activate PiP if the main video is playing
+  }
+
   isFloating = true;
   floatingContainer.style.display = 'block'; // Show floating video container
-  floatingVideo.currentTime = videoElement.currentTime; // Sync time with main video
-  floatingVideo.play();
-  videoElement.pause(); // Pause the main video
+  floatingVideo.currentTime = videoElement.currentTime; // Sync current time
+  floatingVideo.volume = videoElement.volume; // Sync volume
+  floatingVideo.muted = videoElement.muted; // Sync mute state
+  floatingVideo.play(); // Continue playback in PiP
+  videoElement.pause(); // Pause main video
 }
 
+// Disable PiP Player
 function disableFloatingPlayer() {
   isFloating = false;
   floatingContainer.style.display = 'none'; // Hide floating video container
-  videoElement.currentTime = floatingVideo.currentTime; // Sync time with floating video
-  videoElement.play(); // Resume main video
-  floatingVideo.pause();
+  videoElement.currentTime = floatingVideo.currentTime; // Sync current time
+  videoElement.volume = floatingVideo.volume; // Sync volume
+  videoElement.muted = floatingVideo.muted; // Sync mute state
+
+  if (!floatingVideo.paused) {
+    videoElement.play(); // Resume playback in main video if PiP was playing
+  } else {
+    videoElement.pause(); // Keep main video paused if PiP was paused
+  }
+  floatingVideo.pause(); // Pause floating video
 }
 
-// Synchronize main video with floating video
-function syncMainVideo() {
-  videoElement.currentTime = floatingVideo.currentTime;
-  videoElement.play();
-  floatingVideo.pause(); // Pause floating video when switching back
-}
-
-// Synchronize floating video with main video
-function syncFloatingVideo() {
-  floatingVideo.currentTime = videoElement.currentTime;
-  floatingVideo.play();
-  videoElement.pause(); // Pause main video when switching to floating
-}
-
-// Close button for floating video
+// Close Floating Video
 closeFloating.addEventListener('click', () => {
   disableFloatingPlayer();
 });
 
-// IntersectionObserver for scroll tracking
+// IntersectionObserver for PiP Activation
 const observer = new IntersectionObserver((entries) => {
   const entry = entries[0];
-  if (!entry.isIntersecting && !isFloating) {
-    enableFloatingPlayer(); // Switch to floating player
+  if (!entry.isIntersecting && !isFloating && !videoElement.paused) {
+    enableFloatingPlayer(); // Activate PiP
   } else if (entry.isIntersecting && isFloating) {
-    disableFloatingPlayer(); // Switch back to main player
+    disableFloatingPlayer(); // Deactivate PiP
   }
 });
 
 // Observe the main video element
 observer.observe(videoElement);
 
-// Playback state management
-videoElement.addEventListener('play', () => {
-  if (isFloating) {
-    floatingVideo.pause();
-  }
-  console.log('Main video started.');
-});
-
-videoElement.addEventListener('pause', () => {
-  console.log('Main video paused.');
-});
-
+// Synchronize Play/Pause and Volume/Mute Across Players
 floatingVideo.addEventListener('play', () => {
-  if (!isFloating) {
-    floatingVideo.pause(); // Ensure floating video doesn't play when main video is active
-  } else {
+  if (isFloating) {
+    videoElement.currentTime = floatingVideo.currentTime;
     videoElement.pause();
   }
-  console.log('Floating video started.');
 });
 
 floatingVideo.addEventListener('pause', () => {
-  console.log('Floating video paused.');
+  if (isFloating) videoElement.pause();
 });
 
-videoElement.addEventListener('timeupdate', () => {
+videoElement.addEventListener('play', () => {
   if (!isFloating) {
-    floatingVideo.currentTime = videoElement.currentTime; // Sync floating video time
+    floatingVideo.currentTime = videoElement.currentTime;
+    floatingVideo.pause();
   }
 });
 
-floatingVideo.addEventListener('timeupdate', () => {
-  if (isFloating) {
-    videoElement.currentTime = floatingVideo.currentTime; // Sync main video time
-  }
+videoElement.addEventListener('pause', () => {
+  if (!isFloating) floatingVideo.pause();
 });
 
-videoElement.addEventListener('ended', () => {
-  console.log('Ad ended.');
-  disableFloatingPlayer();
+floatingVideo.addEventListener('volumechange', () => {
+  videoElement.volume = floatingVideo.volume;
+  videoElement.muted = floatingVideo.muted;
+});
+
+videoElement.addEventListener('volumechange', () => {
+  floatingVideo.volume = videoElement.volume;
+  floatingVideo.muted = videoElement.muted;
 });
