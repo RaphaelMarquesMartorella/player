@@ -259,6 +259,7 @@
     // Close Floating Video
     closeFloating.addEventListener('click', () => {
     disableFloatingPlayer();
+    videoElement.pause();
     });
 
     // IntersectionObserver for PiP Activation
