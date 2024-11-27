@@ -122,7 +122,7 @@ function enableFloatingPlayer() {
 
   isFloating = true;
   floatingContainer.style.display = 'block'; // Show floating video container
-  floatingVideo.currentTime = videoElement.currentTime; // Sync current time
+  floatingVideo.currentTime = videoElement.currentTime + 0.2; // Sync current time
   floatingVideo.volume = videoElement.volume; // Sync volume
   floatingVideo.muted = videoElement.muted; // Sync mute state
   floatingVideo.play(); // Continue playback in PiP
@@ -133,7 +133,7 @@ function enableFloatingPlayer() {
 function disableFloatingPlayer() {
   isFloating = false;
   floatingContainer.style.display = 'none'; // Hide floating video container
-  videoElement.currentTime = floatingVideo.currentTime; // Sync current time
+  videoElement.currentTime = floatingVideo.currentTime + 0.2; // Sync current time
   videoElement.volume = floatingVideo.volume; // Sync volume
   videoElement.muted = floatingVideo.muted; // Sync mute state
 

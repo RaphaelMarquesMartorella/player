@@ -9,22 +9,29 @@
     body {
       margin: 0;
       display: flex;
+      height: 200vh;
       flex-direction: column;
       align-items: center;
-      height: 200vh; /* Extra height for scrolling */
       background-color: #f0f0f0;
     }
+
+    /* Responsive container for the video */
     #ad-container {
-      width: 640px;
-      height: 360px;
+      width: 100%; /* Take full width of the screen */
+      max-width: 640px; /* Limit to a max width */
+      aspect-ratio: 16 / 9; /* Maintain 16:9 aspect ratio */
       background-color: black;
       position: relative;
       margin-top: 20px;
     }
-    video {
-      width: 100%;
-      height: 100%;
+
+    /* Make the video fill the container */
+    #ad-video {
+      width: 100%; /* Full width of the container */
+      height: 100%; /* Full height of the container */
+      object-fit: contain; /* Scale the video without cropping */
     }
+
     .play-button {
       position: absolute;
       top: 50%;
@@ -40,11 +47,13 @@
       cursor: pointer;
       z-index: 10;
     }
+
     .play-button svg {
       fill: white;
       width: 40px;
       height: 40px;
     }
+
     #floating-video-container {
       display: none;
       position: fixed;
@@ -58,10 +67,12 @@
       background-color: black;
       overflow: hidden;
     }
+
     #floating-video-container video {
       width: 100%;
       height: 100%;
     }
+
     #close-floating {
       position: absolute;
       top: 5px;
@@ -80,7 +91,7 @@
 </head>
 <body>
   <div id="ad-container">
-    <video id="ad-video" controls playsinline></video>
+    <video id="ad-video" controls playsinline poster="https://via.placeholder.com/640x360.png?text=Loading+Video"></video>
     <div class="play-button" id="play-button">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
         <path d="M8 5v14l11-7z" />
