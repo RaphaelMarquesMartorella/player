@@ -1,5 +1,4 @@
 (function () {
-    // Locate the container
     const playerContainer = document.getElementById('vast-video-player');
     if (!playerContainer) {
       console.error('VAST Video Player: Missing container with id "vast-video-player".');
@@ -99,7 +98,6 @@
     `;
     document.head.appendChild(style);
 
-    // Add HTML structure
     playerContainer.innerHTML = `
       <div id="ad-container">
       <div id="loading-overlay">
