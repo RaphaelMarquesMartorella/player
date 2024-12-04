@@ -14,24 +14,19 @@
       align-items: center;
       background-color: #f0f0f0;
     }
-
-    /* Responsive container for the video */
     #ad-container {
-      width: 100%; /* Take full width of the screen */
-      max-width: 640px; /* Limit to a max width */
-      aspect-ratio: 16 / 9; /* Maintain 16:9 aspect ratio */
+      width: 100%;
+      max-width: 640px;
+      aspect-ratio: 16 / 9;
       background-color: black;
       position: relative;
       margin-top: 20px;
     }
-
-    /* Make the video fill the container */
     #ad-video {
-      width: 100%; /* Full width of the container */
-      height: 100%; /* Full height of the container */
-      object-fit: contain; /* Scale the video without cropping */
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
-
     .play-button {
       position: absolute;
       top: 50%;
@@ -47,13 +42,11 @@
       cursor: pointer;
       z-index: 10;
     }
-
     .play-button svg {
       fill: white;
       width: 40px;
       height: 40px;
     }
-
     #floating-video-container {
       display: none;
       position: fixed;
@@ -67,12 +60,10 @@
       background-color: black;
       overflow: hidden;
     }
-
     #floating-video-container video {
       width: 100%;
       height: 100%;
     }
-
     #close-floating {
       position: absolute;
       top: 5px;
@@ -87,21 +78,36 @@
       text-align: center;
       cursor: pointer;
     }
+    #loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(0, 0, 0, 0.3);
+      z-index: 5;
+    }
+    #loading-overlay img {
+      width: 100px;
+      height: 100px;
+    }
   </style>
 </head>
 <body>
   <div id="ad-container">
-    <video id="ad-video" controls playsinline poster="https://via.placeholder.com/640x360.png?text=Loading+Video"></video>
-    <div class="play-button" id="play-button">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M8 5v14l11-7z" />
-      </svg>
+    <div id="loading-overlay">
+      <img src="Rolling@1x-1.3s-200px-200px.gif" alt="Loading..." />
     </div>
+    <video id="ad-video" controls playsinline preload="auto" autoplay muted controlsList="nodownload"></video>
   </div>
   <div id="floating-video-container">
-    <video id="floating-video" controls playsinline></video>
+    <video id="floating-video" controls playsinline preload="auto" muted controlsList="nodownload"></video>
     <div id="close-floating">✕</div>
   </div>
+  
   <script src="ads.js"></script>
 </body>
 </html>

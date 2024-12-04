@@ -6,7 +6,6 @@
       return;
     }
 
-    // Add styles dynamically
     const style = document.createElement('style');
     style.textContent = `
       body {
@@ -17,24 +16,19 @@
       align-items: center;
       background-color: #f0f0f0;
     }
-
-    /* Responsive container for the video */
     #ad-container {
-      width: 100%; /* Take full width of the screen */
-      max-width: 640px; /* Limit to a max width */
-      aspect-ratio: 16 / 9; /* Maintain 16:9 aspect ratio */
+      width: 100%;
+      max-width: 640px;
+      aspect-ratio: 16 / 9;
       background-color: black;
       position: relative;
       margin-top: 20px;
     }
-
-    /* Make the video fill the container */
     #ad-video {
-      width: 100%; /* Full width of the container */
-      height: 100%; /* Full height of the container */
-      object-fit: contain; /* Scale the video without cropping */
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
-
     .play-button {
       position: absolute;
       top: 50%;
@@ -50,13 +44,11 @@
       cursor: pointer;
       z-index: 10;
     }
-
     .play-button svg {
       fill: white;
       width: 40px;
       height: 40px;
     }
-
     #floating-video-container {
       display: none;
       position: fixed;
@@ -70,12 +62,10 @@
       background-color: black;
       overflow: hidden;
     }
-
     #floating-video-container video {
       width: 100%;
       height: 100%;
     }
-
     #close-floating {
       position: absolute;
       top: 5px;
@@ -90,222 +80,238 @@
       text-align: center;
       cursor: pointer;
     }
+    #loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(0, 0, 0, 0.3);
+      z-index: 5;
+    }
+    #loading-overlay img {
+      width: 100px;
+      height: 100px;
+    }
     `;
     document.head.appendChild(style);
 
     // Add HTML structure
     playerContainer.innerHTML = `
       <div id="ad-container">
-    <video id="ad-video" controls playsinline poster="https://via.placeholder.com/640x360.png?text=Loading+Video"></video>
-    <div class="play-button" id="play-button">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M8 5v14l11-7z" />
-      </svg>
-    </div>
-  </div>
-  <div id="floating-video-container">
-    <video id="floating-video" controls playsinline></video>
-    <div id="close-floating">✕</div>
-  </div>
+      <div id="loading-overlay">
+        <img src="Rolling@1x-1.3s-200px-200px.gif" alt="Loading..." />
+      </div>
+      <video id="ad-video" controls playsinline preload="auto" autoplay muted controlsList="nodownload"></video>
+      </div>
+      <div id="floating-video-container">
+        <video id="floating-video" controls playsinline preload="auto" muted controlsList="nodownload"></video>
+        <div id="close-floating">✕</div>
+      </div>
     `;
 
-    const vastTagUrl = 'https://metrike-vast4-response.vercel.app/vast.xml'; // VAST URL
-    const adContainer = document.getElementById('ad-container'); // Ad container element
-    const videoElement = document.getElementById('ad-video'); // Main video element
-    const playButton = document.getElementById('play-button'); // Play button
+    const vastTagUrl = 'https://metrike-vast4-response.vercel.app/vast.xml';
+    const adContainer = document.getElementById('ad-container');
+    const videoElement = document.getElementById('ad-video');
+    const floatingContainer = document.getElementById('floating-video-container');
+    const floatingVideo = document.getElementById('floating-video');
+    const closeFloating = document.getElementById('close-floating');
 
-    const floatingContainer = document.getElementById('floating-video-container'); // Floating video container
-    const floatingVideo = document.getElementById('floating-video'); // Floating video element
-    const closeFloating = document.getElementById('close-floating'); // Close button for floating video
-
-    let isFloating = false; // Tracks whether PiP is active
+    let isFloating = false;
     let trackingFired = {
-    start: false,
-    firstQuartile: false,
-    midpoint: false,
-    thirdQuartile: false,
-    complete: false,
+      start: false,
+      firstQuartile: false,
+      midpoint: false,
+      thirdQuartile: false,
+      complete: false,
     };
 
-    // Parse VAST and extract the media file URL and tracking URLs
     async function fetchVast() {
-    console.log('Fetching VAST tag...');
-    try {
+      console.log('Fetching VAST tag...');
+      try {
         const response = await fetch(vastTagUrl);
         const vastXml = await response.text();
 
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(vastXml, 'text/xml');
 
-        // Extract the MediaFile URL
         const mediaFile = xmlDoc.querySelector('MediaFile');
-        if (!mediaFile) {
-        throw new Error('MediaFile not found in VAST tag.');
-        }
-        const videoUrl = mediaFile.textContent.trim();
+        const clickThrough = xmlDoc.querySelector('ClickThrough');
 
-        // Extract tracking events
+        if (!mediaFile) {
+          throw new Error('MediaFile not found in VAST tag.');
+        }
+
+        const videoUrl = mediaFile.textContent.trim();
+        const clickThroughUrl = clickThrough ? clickThrough.textContent.trim() : null;
+
         const trackingEvents = {};
         xmlDoc.querySelectorAll('Tracking').forEach((tracking) => {
-        const event = tracking.getAttribute('event');
-        trackingEvents[event] = tracking.textContent.trim();
+          const event = tracking.getAttribute('event');
+          trackingEvents[event] = tracking.textContent.trim();
         });
 
         console.log('Media file URL:', videoUrl);
+        console.log('ClickThrough URL:', clickThroughUrl);
         console.log('Tracking URLs:', trackingEvents);
 
-        return { videoUrl, trackingEvents };
-    } catch (error) {
+        return { videoUrl, clickThroughUrl, trackingEvents };
+      } catch (error) {
         console.error('Error fetching or parsing VAST tag:', error);
-    }
+      }
     }
 
-    // Fire VAST Tracking Events
     function fireTrackingEvent(eventName, trackingUrls) {
-    if (!trackingUrls[eventName] || trackingFired[eventName]) return;
-    console.log(`Firing ${eventName} tracking URL:`, trackingUrls[eventName]);
-    fetch(trackingUrls[eventName])
+      if (!trackingUrls[eventName] || trackingFired[eventName]) return;
+      console.log(`Firing ${eventName} tracking URL:`, trackingUrls[eventName]);
+      fetch(trackingUrls[eventName])
         .then(() => {
-        console.log(`${eventName} event tracked successfully.`);
-        trackingFired[eventName] = true;
+          console.log(`${eventName} event tracked successfully.`);
+          trackingFired[eventName] = true;
         })
         .catch((error) => console.error(`Error tracking ${eventName} event:`, error));
     }
 
-    // Load and play the ad video
     async function loadAd() {
-    try {
-        const { videoUrl, trackingEvents } = await fetchVast();
+      try {
+        const { videoUrl, clickThroughUrl, trackingEvents } = await fetchVast();
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        loadingOverlay.style.display = 'flex';
+
         if (videoUrl) {
-        videoElement.src = videoUrl;
-        floatingVideo.src = videoUrl;
+          videoElement.src = videoUrl;
+          floatingVideo.src = videoUrl;
 
-        // Bind tracking to both players
-        bindTracking(videoElement, trackingEvents);
-        bindTracking(floatingVideo, trackingEvents);
+          bindTracking(videoElement, trackingEvents);
+          bindTracking(floatingVideo, trackingEvents);
 
-        console.log('Ad video loaded.');
+          if (clickThroughUrl) {
+            videoElement.addEventListener('click', (e) => {
+              const rect = videoElement.getBoundingClientRect();
+              const isControlArea = e.clientY > rect.bottom - 50;
+              if (!isControlArea) {
+                window.open(clickThroughUrl, '_blank');
+              }
+            });
+
+            floatingVideo.addEventListener('click', (e) => {
+              const rect = floatingVideo.getBoundingClientRect();
+              const isControlArea = e.clientY > rect.bottom - 30;
+              if (!isControlArea) {
+                window.open(clickThroughUrl, '_blank');
+              }
+            });
+          }
+
+          videoElement.addEventListener('loadeddata', () => {
+            loadingOverlay.style.display = 'none';
+          });
+
+          console.log('Ad video loaded.');
         } else {
-        console.error('No video URL available.');
+          console.error('No video URL available.');
         }
-    } catch (error) {
+      } catch (error) {
         console.error('Error loading ad video:', error);
-    }
+        document.getElementById('loading-overlay').style.display = 'none';
+      }
     }
 
-    // Bind VAST Tracking Events to a Video Element
     function bindTracking(video, trackingUrls) {
-    video.addEventListener('play', () => fireTrackingEvent('start', trackingUrls));
-    video.addEventListener('timeupdate', () => {
+      video.addEventListener('play', () => fireTrackingEvent('start', trackingUrls));
+      video.addEventListener('timeupdate', () => {
         const quartile = video.currentTime / video.duration;
         if (quartile >= 0.25 && !trackingFired.firstQuartile) {
-        fireTrackingEvent('firstQuartile', trackingUrls);
+          fireTrackingEvent('firstQuartile', trackingUrls);
         }
         if (quartile >= 0.5 && !trackingFired.midpoint) {
-        fireTrackingEvent('midpoint', trackingUrls);
+          fireTrackingEvent('midpoint', trackingUrls);
         }
         if (quartile >= 0.75 && !trackingFired.thirdQuartile) {
-        fireTrackingEvent('thirdQuartile', trackingUrls);
+          fireTrackingEvent('thirdQuartile', trackingUrls);
         }
-    });
-    video.addEventListener('ended', () => fireTrackingEvent('complete', trackingUrls));
-    video.addEventListener('volumechange', () => {
+      });
+      video.addEventListener('ended', () => fireTrackingEvent('complete', trackingUrls));
+      video.addEventListener('volumechange', () => {
         const event = video.muted ? 'mute' : 'unmute';
         fireTrackingEvent(event, trackingUrls);
-    });
-    video.addEventListener('pause', () => fireTrackingEvent('pause', trackingUrls));
+      });
+      video.addEventListener('pause', () => fireTrackingEvent('pause', trackingUrls));
     }
 
-    // Play Button Logic
-    playButton.addEventListener('click', async () => {
-    console.log('Play button clicked.');
-    playButton.style.display = 'none'; // Hide the play button
-    await loadAd();
-    videoElement.play(); // Start video playback
-    });
+    async function initialize() {
+      await loadAd();
+      videoElement.play();
+    }
 
-    // Enable PiP Player
     function enableFloatingPlayer() {
-    if (videoElement.paused) {
+      if (videoElement.paused) {
         console.log("Can't enter PiP when video is paused.");
-        return; // Only activate PiP if the main video is playing
+        return;
+      }
+
+      isFloating = true;
+      floatingContainer.style.display = 'block';
+      floatingVideo.currentTime = videoElement.currentTime;
+      floatingVideo.volume = videoElement.volume;
+      floatingVideo.muted = videoElement.muted;
+      floatingVideo.play();
+      videoElement.pause();
     }
 
-    isFloating = true;
-    floatingContainer.style.display = 'block'; // Show floating video container
-    floatingVideo.currentTime = videoElement.currentTime + 0.2; // Sync current time
-    floatingVideo.volume = videoElement.volume; // Sync volume
-    floatingVideo.muted = videoElement.muted; // Sync mute state
-    floatingVideo.play(); // Continue playback in PiP
-    videoElement.pause(); // Pause main video
-    }
-
-    // Disable PiP Player
     function disableFloatingPlayer() {
-    isFloating = false;
-    floatingContainer.style.display = 'none'; // Hide floating video container
-    videoElement.currentTime = floatingVideo.currentTime + 0.2; // Sync current time
-    videoElement.volume = floatingVideo.volume; // Sync volume
-    videoElement.muted = floatingVideo.muted; // Sync mute state
+      isFloating = false;
+      floatingContainer.style.display = 'none';
+      videoElement.currentTime = floatingVideo.currentTime;
+      videoElement.volume = floatingVideo.volume;
+      videoElement.muted = floatingVideo.muted;
 
-    if (!floatingVideo.paused) {
-        videoElement.play(); // Resume playback in main video if PiP was playing
-    } else {
-        videoElement.pause(); // Keep main video paused if PiP was paused
-    }
-    floatingVideo.pause(); // Pause floating video
+      if (!floatingVideo.paused) {
+        videoElement.play();
+      } else {
+        videoElement.pause();
+      }
+      floatingVideo.pause();
     }
 
-    // Close Floating Video
+    function synchronizeVideos(sourceVideo, targetVideo) {
+      targetVideo.currentTime = sourceVideo.currentTime;
+      targetVideo.muted = sourceVideo.muted;
+      targetVideo.volume = sourceVideo.volume;
+    }
+
+    videoElement.addEventListener('timeupdate', () => {
+      if (isFloating && Math.abs(videoElement.currentTime - floatingVideo.currentTime) > 0.1) {
+        synchronizeVideos(videoElement, floatingVideo);
+      }
+    });
+
+    floatingVideo.addEventListener('timeupdate', () => {
+      if (isFloating && Math.abs(floatingVideo.currentTime - videoElement.currentTime) > 0.1) {
+        synchronizeVideos(floatingVideo, videoElement);
+      }
+    });
+
     closeFloating.addEventListener('click', () => {
-    disableFloatingPlayer();
-    videoElement.pause();
+      disableFloatingPlayer();
+      videoElement.pause();
     });
 
-    // IntersectionObserver for PiP Activation
     const observer = new IntersectionObserver((entries) => {
-    const entry = entries[0];
-    if (!entry.isIntersecting && !isFloating && !videoElement.paused) {
-        enableFloatingPlayer(); // Activate PiP
-    } else if (entry.isIntersecting && isFloating) {
-        disableFloatingPlayer(); // Deactivate PiP
-    }
+      const entry = entries[0];
+      if (!entry.isIntersecting && !isFloating && !videoElement.paused) {
+        enableFloatingPlayer();
+      } else if (entry.isIntersecting && isFloating) {
+        disableFloatingPlayer();
+      }
     });
 
-    // Observe the main video element
     observer.observe(videoElement);
 
-    // Synchronize Play/Pause and Volume/Mute Across Players
-    floatingVideo.addEventListener('play', () => {
-    if (isFloating) {
-        videoElement.currentTime = floatingVideo.currentTime;
-        videoElement.pause();
-    }
-    });
-
-    floatingVideo.addEventListener('pause', () => {
-    if (isFloating) videoElement.pause();
-    });
-
-    videoElement.addEventListener('play', () => {
-    if (!isFloating) {
-        floatingVideo.currentTime = videoElement.currentTime;
-        floatingVideo.pause();
-    }
-    });
-
-    videoElement.addEventListener('pause', () => {
-    if (!isFloating) floatingVideo.pause();
-    });
-
-    floatingVideo.addEventListener('volumechange', () => {
-    videoElement.volume = floatingVideo.volume;
-    videoElement.muted = floatingVideo.muted;
-    });
-
-    videoElement.addEventListener('volumechange', () => {
-    floatingVideo.volume = videoElement.volume;
-    floatingVideo.muted = videoElement.muted;
-    });
+    initialize();
 
   })();
